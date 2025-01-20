@@ -9,9 +9,8 @@ from config import API_TOKEN
 from database import init_db
 from commands import bot_commands
 from handlers import (
-    cmd_start, process_name, register_handlers, send_daily_notifications
+    cmd_start, register_handlers, send_daily_notifications
 )
-from states import Registration
 from middleware import RegistrationMiddleware
 
 # Инициализация бота и диспетчера
@@ -28,7 +27,6 @@ dp.callback_query.middleware(RegistrationMiddleware())
 
 # Регистрация обработчиков
 dp.message.register(cmd_start, Command("start"))
-dp.message.register(process_name, Registration.waiting_for_name)
 
 # Регистрация обработчиков для callback_query
 register_handlers(dp)

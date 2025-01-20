@@ -8,27 +8,20 @@ from database import cursor, conn
 from keyboards import get_main_menu_keyboard, get_return_to_main_menu_keyboard, get_choose_test_keyboard, get_confirmation_keyboard
 from gigachat_api import generate_attention_test
 import logging
-from states import FeedbackStates, NotificationStates
+from states import FeedbackStates, NotificationStates, Registration, TestStates
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-# Обработчик для любых сообщений
+# Обработчик для лишних сообщений
 @router.message()
 async def handle_any_message(message: types.Message, state: FSMContext):
     await message.answer("Я не понимаю вашего сообщения. Пожалуйста, используйте команды из меню.")
     await show_main_menu(message)
 
-# Состояния для регистрации
-class Registration(StatesGroup):
-    waiting_for_name = State()
-
-# Состояния для тестов
-class TestStates(StatesGroup):
-    waiting_for_answer = State()
-
 # Обработчик команды /start
+@router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     logger.info(f"Пользователь {user_id} начал работу с ботом.")
@@ -36,9 +29,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
     user = cursor.fetchone()
 
     if user is None:
+        logger.info(f"Пользователь {user_id} не зарегистрирован. Запрашиваю имя.")
         await message.answer("Привет! Давай зарегистрируемся. Введи своё имя:")
         await state.set_state(Registration.waiting_for_name)
     else:
+        logger.info(f"Пользователь {user_id} уже зарегистрирован. Показываю главное меню.")
         await show_main_menu(message)
 
 # Обработчик команды /menu
@@ -47,13 +42,16 @@ async def cmd_menu(message: types.Message, state: FSMContext):
     await show_main_menu(message)
 
 # Обработчик ввода имени
+@router.message(Registration.waiting_for_name)
 async def process_name(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     name = message.text
     logger.info(f"Пользователь {user_id} зарегистрировался с именем {name}.")
 
+    # Сохраняем пользователя в базу данных
     cursor.execute('INSERT INTO users (user_id, name) VALUES (?, ?)', (user_id, name))
     conn.commit()
+    logger.info(f"Пользователь {user_id} успешно сохранен в базу данных.")
 
     await message.answer(f"Спасибо, {name}! Теперь ты зарегистрирован.")
     await show_main_menu(message)
@@ -70,8 +68,7 @@ async def show_main_menu(message: types.Message | CallbackQuery):
     else:
         await message.answer(text, reply_markup=keyboard)
 
-# Регистрация обработчиков
-
+# Функция для провкедения выбранного теста
 async def start_choosen_test(callback: CallbackQuery, state: FSMContext):
     """
     Начинает тест в зависимости от выбранного типа.
@@ -111,6 +108,7 @@ async def start_choosen_test(callback: CallbackQuery, state: FSMContext):
         await show_main_menu(callback)
         await state.clear()
 
+# Функция для проверки правильности ответа
 async def check_test_answer(message: types.Message, state: FSMContext):
     """
     Проверяет ответ пользователя на тест и сохраняет результат.
@@ -161,6 +159,7 @@ async def check_test_answer(message: types.Message, state: FSMContext):
         await show_main_menu(message)
         await state.clear()
 
+# Функция для начала комплексного теста
 async def start_complex_test(callback: CallbackQuery, state: FSMContext):
     """
     Начинает поочередное выполнение всех тестов.
@@ -177,6 +176,7 @@ async def start_complex_test(callback: CallbackQuery, state: FSMContext):
     # Запускаем первый тест
     await send_next_test(callback, state)
 
+# Функция для перехода к следующему заданию в комплексном тесте
 async def send_next_test(update: types.Message | types.CallbackQuery, state: FSMContext):
     """
     Отправляет следующий тест из списка и сохраняет статистику после завершения.
@@ -247,6 +247,7 @@ async def send_next_test(update: types.Message | types.CallbackQuery, state: FSM
             await show_main_menu(update)
         await state.clear()
 
+# Функция для перехода к другой клавиатуре
 async def go_to_new_keyboard(callback: CallbackQuery):
     """
     Обрабатывает нажатие кнопки "Тренировка с заданиями по выбору" и переключает клавиатуру.
@@ -257,6 +258,7 @@ async def go_to_new_keyboard(callback: CallbackQuery):
     # Редактируем текущее сообщение, заменяя клавиатуру
     await callback.message.edit_reply_markup(reply_markup=new_keyboard)
 
+# Функция для отображения истории
 async def show_test_history(callback: CallbackQuery):
     """
     Показывает историю прохождения тестов пользователя.
@@ -286,6 +288,7 @@ async def show_test_history(callback: CallbackQuery):
 
     await callback.message.answer(history_text)
 
+# Функция для отображения статистики
 async def show_statistics(callback: CallbackQuery):
     """
     Показывает статистику пользователя по всем пройденным тестам.
@@ -316,6 +319,7 @@ async def show_statistics(callback: CallbackQuery):
 
     await callback.message.answer(stats_text)
 
+# Функция для удаления истории
 async def delete_history(callback: CallbackQuery):
     """
     Удаляет историю тестов пользователя.
@@ -330,6 +334,7 @@ async def delete_history(callback: CallbackQuery):
     await callback.message.answer("🗑️ История тестов успешно удалена.")
     await show_main_menu(callback)
 
+# Функция для удаления статистики
 async def delete_statistics(callback: CallbackQuery):
     """
     Удаляет статистику пользователя.
@@ -344,6 +349,7 @@ async def delete_statistics(callback: CallbackQuery):
     await callback.message.answer("🗑️ Статистика успешно удалена.")
     await show_main_menu(callback)
 
+# Функция для подтверждения удаления
 async def confirm_delete(callback: CallbackQuery):
     """
     Обрабатывает подтверждение удаления.
@@ -355,6 +361,7 @@ async def confirm_delete(callback: CallbackQuery):
     elif action == "statistics":
         await delete_statistics(callback)
 
+# Функция для отмены удаления
 async def cancel_delete(callback: CallbackQuery):
     """
     Отменяет удаление и возвращает пользователя в главное меню.
@@ -362,6 +369,7 @@ async def cancel_delete(callback: CallbackQuery):
     await callback.message.answer("❌ Удаление отменено.")
     await show_main_menu(callback)
 
+# Функция для запроса удаления истории
 async def request_delete_history(callback: CallbackQuery):
     """
     Запрашивает подтверждение для удаления истории.
@@ -371,6 +379,7 @@ async def request_delete_history(callback: CallbackQuery):
         reply_markup=get_confirmation_keyboard("history")
     )
 
+# Функция для запроса удаления статистики
 async def request_delete_statistics(callback: CallbackQuery):
     """
     Запрашивает подтверждение для удаления статистики.
@@ -380,6 +389,7 @@ async def request_delete_statistics(callback: CallbackQuery):
         reply_markup=get_confirmation_keyboard("statistics")
     )
 
+# Функция для сохранения отзыва
 async def save_feedback(user_id: int, feedback_text: str):
     """
     Сохраняет отзыв пользователя в базу данных вместе с именем пользователя.
@@ -395,6 +405,7 @@ async def save_feedback(user_id: int, feedback_text: str):
     ''', (user_id, user_name, feedback_text))
     conn.commit()
 
+# Функция для запроса отзыва
 async def request_feedback(callback: CallbackQuery, state: FSMContext):
     """
     Запрашивает отзыв у пользователя.
@@ -402,6 +413,7 @@ async def request_feedback(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("📝 Пожалуйста, напишите ваш отзыв:")
     await state.set_state(FeedbackStates.waiting_for_feedback)
 
+# Функция для обработки отзыва
 async def process_feedback(message: types.Message, state: FSMContext):
     """
     Обрабатывает отзыв пользователя и сохраняет его в базу данных.
@@ -416,6 +428,7 @@ async def process_feedback(message: types.Message, state: FSMContext):
     await show_main_menu(message)
     await state.clear()
 
+# Обработчик для кнопки вернуться в меню
 @router.message(F.text == "Вернуться в главное меню")
 async def go_to_main_menu(message: types.Message, state: FSMContext):
     """
@@ -428,6 +441,7 @@ async def go_to_main_menu(message: types.Message, state: FSMContext):
     # Отправляем пользователю главное меню
     await show_main_menu(message)
 
+# Функция для подписки на уведомления
 async def subscribe_notifications(callback: CallbackQuery, state: FSMContext):
     """
     Обрабатывает подписку на уведомления.
@@ -446,6 +460,7 @@ async def subscribe_notifications(callback: CallbackQuery, state: FSMContext):
     await state.set_state(NotificationStates.subscribed)
     await show_main_menu(callback)
 
+# Функция для отправки уведомлений
 async def send_daily_notifications(bot: Bot):
     """
     Отправляет ежедневные уведомления подписанным пользователям.
@@ -461,7 +476,9 @@ async def send_daily_notifications(bot: Bot):
         except Exception as e:
             logger.error(f"Ошибка при отправке уведомления пользователю {user_id}: {e}")
 
+# Регистрация обработчиков
 def register_handlers(dp):
+    dp.message.register(process_name, Registration.waiting_for_name)
     dp.message.register(cmd_menu, Command("menu"))
     dp.callback_query.register(start_choosen_test, F.data.startswith("test_type:"))
     dp.callback_query.register(go_to_new_keyboard, F.data == "training_with_tasks")

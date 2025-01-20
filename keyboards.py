@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
+# Главное меню
 def get_main_menu_keyboard():
     keyboard = [
         [InlineKeyboardButton(text="Комплексный тест", callback_data="complex_test")],
@@ -14,6 +15,7 @@ def get_main_menu_keyboard():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Выбор теста
 def get_choose_test_keyboard():
     keyboard = [
         [InlineKeyboardButton(text="Посчитайте количество заданного слова в тексте", callback_data="test_type:word_count")],
@@ -22,6 +24,7 @@ def get_choose_test_keyboard():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Подтверждение
 def get_confirmation_keyboard(action: str):
     """
     Создаёт клавиатуру для подтверждения удаления.
@@ -33,6 +36,7 @@ def get_confirmation_keyboard(action: str):
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Выход в меню
 def get_return_to_main_menu_keyboard():
     """
     Создаёт Reply-клавиатуру с кнопкой "Вернуться в главное меню".

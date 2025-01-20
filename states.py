@@ -12,5 +12,6 @@ class TestStates(StatesGroup):
 class FeedbackStates(StatesGroup):
     waiting_for_feedback = State()
 
+# Состояние для уведомлений
 class NotificationStates(StatesGroup):
     subscribed = State()
