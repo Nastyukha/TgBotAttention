@@ -9,9 +9,16 @@ from keyboards import get_main_menu_keyboard, get_return_to_main_menu_keyboard, 
 from gigachat_api import generate_attention_test
 import logging
 from states import FeedbackStates, NotificationStates
-from aiogram.fsm.state import State, StatesGroup
 
 logger = logging.getLogger(__name__)
+
+router = Router()
+
+# Обработчик для любых сообщений
+@router.message()
+async def handle_any_message(message: types.Message, state: FSMContext):
+    await message.answer("Я не понимаю вашего сообщения. Пожалуйста, используйте команды из меню.")
+    await show_main_menu(message)
 
 # Состояния для регистрации
 class Registration(StatesGroup):
@@ -33,6 +40,11 @@ async def cmd_start(message: types.Message, state: FSMContext):
         await state.set_state(Registration.waiting_for_name)
     else:
         await show_main_menu(message)
+
+# Обработчик команды /menu
+@router.message(Command("menu"))
+async def cmd_menu(message: types.Message, state: FSMContext):
+    await show_main_menu(message)
 
 # Обработчик ввода имени
 async def process_name(message: types.Message, state: FSMContext):
@@ -404,8 +416,6 @@ async def process_feedback(message: types.Message, state: FSMContext):
     await show_main_menu(message)
     await state.clear()
 
-router = Router()
-
 @router.message(F.text == "Вернуться в главное меню")
 async def go_to_main_menu(message: types.Message, state: FSMContext):
     """
@@ -417,8 +427,6 @@ async def go_to_main_menu(message: types.Message, state: FSMContext):
 
     # Отправляем пользователю главное меню
     await show_main_menu(message)
-
-logger = logging.getLogger(__name__)
 
 async def subscribe_notifications(callback: CallbackQuery, state: FSMContext):
     """
@@ -454,6 +462,7 @@ async def send_daily_notifications(bot: Bot):
             logger.error(f"Ошибка при отправке уведомления пользователю {user_id}: {e}")
 
 def register_handlers(dp):
+    dp.message.register(cmd_menu, Command("menu"))
     dp.callback_query.register(start_choosen_test, F.data.startswith("test_type:"))
     dp.callback_query.register(go_to_new_keyboard, F.data == "training_with_tasks")
     dp.callback_query.register(start_complex_test, F.data == "complex_test")
@@ -467,3 +476,4 @@ def register_handlers(dp):
     dp.callback_query.register(subscribe_notifications, F.data == "subscribe_notifications")
     dp.message.register(check_test_answer, TestStates.waiting_for_answer)
     dp.message.register(process_feedback, FeedbackStates.waiting_for_feedback)
+    dp.message.register(handle_any_message)

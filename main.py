@@ -12,6 +12,7 @@ from handlers import (
     cmd_start, process_name, register_handlers, send_daily_notifications
 )
 from states import Registration
+from middleware import RegistrationMiddleware
 
 # Инициализация бота и диспетчера
 bot = Bot(
@@ -20,6 +21,10 @@ bot = Bot(
 )
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+# Добавление Middleware
+dp.message.middleware(RegistrationMiddleware())
+dp.callback_query.middleware(RegistrationMiddleware())
 
 # Регистрация обработчиков
 dp.message.register(cmd_start, Command("start"))

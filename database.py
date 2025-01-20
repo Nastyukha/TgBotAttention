@@ -56,4 +56,15 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(user_id)
     )
     ''')
+
+    # Создание таблицы user_actions
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        action TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )
+    ''')
     conn.commit()
