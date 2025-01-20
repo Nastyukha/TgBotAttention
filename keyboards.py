@@ -9,7 +9,8 @@ def get_main_menu_keyboard():
         [InlineKeyboardButton(text="Посмотреть статистику", callback_data="tests_statistics")],
         [InlineKeyboardButton(text="Удалить историю", callback_data="delete_history")],
         [InlineKeyboardButton(text="Удалить статистику", callback_data="delete_statistics")],
-        [InlineKeyboardButton(text="Оставить отзыв", callback_data="leave_feedback")]
+        [InlineKeyboardButton(text="Оставить отзыв", callback_data="leave_feedback")],
+        [InlineKeyboardButton(text="Подписаться на уведомления", callback_data="subscribe_notifications")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

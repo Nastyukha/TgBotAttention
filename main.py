@@ -1,4 +1,5 @@
 from aiogram import Bot, Dispatcher
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.enums import ParseMode
@@ -8,9 +9,9 @@ from config import API_TOKEN
 from database import init_db
 from commands import bot_commands
 from handlers import (
-    cmd_start, process_name, register_handlers
+    cmd_start, process_name, register_handlers, send_daily_notifications
 )
-from states import Registration, TestStates
+from states import Registration
 
 # Инициализация бота и диспетчера
 bot = Bot(
@@ -30,6 +31,12 @@ register_handlers(dp)
 # Запуск бота
 async def main():
     init_db()
+
+    # Инициализация планировщика
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_daily_notifications, 'cron', hour=9, minute=0, args=[bot])
+    scheduler.start()
+
     await bot_commands(bot)
     await dp.start_polling(bot)
 

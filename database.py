@@ -47,4 +47,13 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(user_id)
     )
     ''')
+
+    # Создание таблицы notifications
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS notifications (
+        user_id INTEGER PRIMARY KEY,
+        subscribed BOOLEAN DEFAULT FALSE,
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )
+    ''')
     conn.commit()

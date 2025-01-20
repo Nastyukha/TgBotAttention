@@ -1,4 +1,5 @@
 from aiogram import types, F, Router
+from aiogram import Bot
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -7,11 +8,8 @@ from database import cursor, conn
 from keyboards import get_main_menu_keyboard, get_return_to_main_menu_keyboard, get_choose_test_keyboard, get_confirmation_keyboard
 from gigachat_api import generate_attention_test
 import logging
+from states import FeedbackStates, NotificationStates
 from aiogram.fsm.state import State, StatesGroup
-
-# Состояния для отзыва
-class FeedbackStates(StatesGroup):
-    waiting_for_feedback = State()
 
 logger = logging.getLogger(__name__)
 
@@ -420,6 +418,40 @@ async def go_to_main_menu(message: types.Message, state: FSMContext):
     # Отправляем пользователю главное меню
     await show_main_menu(message)
 
+logger = logging.getLogger(__name__)
+
+async def subscribe_notifications(callback: CallbackQuery, state: FSMContext):
+    """
+    Обрабатывает подписку на уведомления.
+    """
+    user_id = callback.from_user.id
+    logger.info(f"Пользователь {user_id} подписался на уведомления.")
+
+    # Сохраняем информацию о подписке в базу данных
+    cursor.execute('''
+    INSERT OR REPLACE INTO notifications (user_id, subscribed)
+    VALUES (?, ?)
+    ''', (user_id, True))
+    conn.commit()
+
+    await callback.message.answer("✅ Вы успешно подписались на ежедневные уведомления!")
+    await state.set_state(NotificationStates.subscribed)
+    await show_main_menu(callback)
+
+async def send_daily_notifications(bot: Bot):
+    """
+    Отправляет ежедневные уведомления подписанным пользователям.
+    """
+    # Получаем всех подписанных пользователей
+    cursor.execute('SELECT user_id FROM notifications WHERE subscribed = ?', (True,))
+    users = cursor.fetchall()
+
+    for user in users:
+        user_id = user[0]
+        try:
+            await bot.send_message(user_id, "⏰ Доброе утро! Не забудьте пройти тесты сегодня!")
+        except Exception as e:
+            logger.error(f"Ошибка при отправке уведомления пользователю {user_id}: {e}")
 
 def register_handlers(dp):
     dp.callback_query.register(start_choosen_test, F.data.startswith("test_type:"))
@@ -432,5 +464,6 @@ def register_handlers(dp):
     dp.callback_query.register(confirm_delete, F.data.startswith("confirm_"))
     dp.callback_query.register(cancel_delete, F.data == "cancel_delete")
     dp.callback_query.register(request_feedback, F.data == "leave_feedback")
+    dp.callback_query.register(subscribe_notifications, F.data == "subscribe_notifications")
     dp.message.register(check_test_answer, TestStates.waiting_for_answer)
     dp.message.register(process_feedback, FeedbackStates.waiting_for_feedback)
